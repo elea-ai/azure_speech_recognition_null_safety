@@ -6,10 +6,10 @@ typedef void StringResultHandler(String text);
 
 class AzureSpeechRecognition {
   static const MethodChannel _channel =
-  const MethodChannel('azure_speech_recognition');
+      const MethodChannel('azure_speech_recognition');
 
   static final AzureSpeechRecognition _azureSpeechRecognition =
-  new AzureSpeechRecognition._internal();
+      new AzureSpeechRecognition._internal();
 
   factory AzureSpeechRecognition() => _azureSpeechRecognition;
 
@@ -54,30 +54,40 @@ class AzureSpeechRecognition {
   VoidCallback? recognitionStoppedHandler;
 
   Future _platformCallHandler(MethodCall call) async {
+    print('AzureSpeechRecognition (dart): ${call.method}');
+
     switch (call.method) {
       case "speech.onRecognitionStarted":
         recognitionStartedHandler!();
+        print('AzureSpeechRecognition (dart): onRecognitionStarted');
         break;
       case "speech.onSpeech":
         recognitionResultHandler!(call.arguments);
+        print('AzureSpeechRecognition (dart): onSpeech');
         break;
       case "speech.onFinalResponse":
+        print('AzureSpeechRecognition (dart): onFinalResponse');
         finalTranscriptionHandler!(call.arguments);
         break;
       case "speech.onAssessmentResult":
+        print('AzureSpeechRecognition (dart): onAssessmentResult');
         assessmentResultHandler!(call.arguments);
         break;
       case "speech.onStartAvailable":
+        print('AzureSpeechRecognition (dart): onStartAvailable');
         startRecognitionHandler!();
         break;
       case "speech.onRecognitionStopped":
+        print('AzureSpeechRecognition (dart): onRecognitionStopped');
         recognitionStoppedHandler!();
         break;
       case "speech.onException":
+        print('AzureSpeechRecognition (dart): onException');
         exceptionHandler!(call.arguments);
         break;
       default:
-        print("Error: method called not found");
+        print("AzureSpeechRecognition (dart): Error: method called not found");
+        throw MissingPluginException('Not implemented: ${call.method}');
     }
   }
 
@@ -123,10 +133,13 @@ class AzureSpeechRecognition {
   }
 
   /// Performs speech recognition until a silence is detected (with speech assessment)
-  static void simpleVoiceRecognitionWithAssessment({String? referenceText,
+  static void simpleVoiceRecognitionWithAssessment({
+    String? referenceText,
     String? phonemeAlphabet,
     String? granularity,
-    bool? enableMiscue, int? nBestPhonemeCount,}) {
+    bool? enableMiscue,
+    int? nBestPhonemeCount,
+  }) {
     if ((_subKey != null && _region != null)) {
       _channel.invokeMethod('simpleVoiceWithAssessment', {
         'language': _lang,
@@ -144,7 +157,6 @@ class AzureSpeechRecognition {
     }
   }
 
-
   /// When called for the first time, starts performing continuous recognition
   /// When called a second time, it stops the previously started recognition
   /// It essentially toggles between "recording" and "not recording" states
@@ -160,10 +172,13 @@ class AzureSpeechRecognition {
   /// When called for the first time, starts performing continuous recognition (with speech assessment)
   /// When called a second time, it stops the previously started recognition (with speech assessment)
   /// It essentially toggles between "recording" and "not recording" states
-  static void continuousRecordingWithAssessment({String? referenceText,
+  static void continuousRecordingWithAssessment({
+    String? referenceText,
     String? phonemeAlphabet,
     String? granularity,
-    bool? enableMiscue, int? nBestPhonemeCount,}) {
+    bool? enableMiscue,
+    int? nBestPhonemeCount,
+  }) {
     if ((_subKey != null && _region != null)) {
       _channel.invokeMethod('continuousStreamWithAssessment', {
         'language': _lang,
@@ -180,11 +195,11 @@ class AzureSpeechRecognition {
     }
   }
 
-
   /// When continuously recording, returns true, otherwise it returns false
   static Future<bool> isContinuousRecognitionOn() {
-    return _channel.invokeMethod<bool>('isContinuousRecognitionOn').then<bool>((
-        bool? value) => value ?? false);
+    return _channel
+        .invokeMethod<bool>('isContinuousRecognitionOn')
+        .then<bool>((bool? value) => value ?? false);
   }
 
   static Future<void> stopContinuousRecognition() async {

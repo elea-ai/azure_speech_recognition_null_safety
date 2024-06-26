@@ -21,6 +21,7 @@ public class SwiftAzureSpeechRecognitionPlugin: NSObject, FlutterPlugin {
         let instance: SwiftAzureSpeechRecognitionPlugin = SwiftAzureSpeechRecognitionPlugin(azureChannel: channel)
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
+    
     init(azureChannel: FlutterMethodChannel) {
         self.azureChannel = azureChannel
     }
@@ -39,46 +40,36 @@ public class SwiftAzureSpeechRecognitionPlugin: NSObject, FlutterPlugin {
         var granularity: SPXPronunciationAssessmentGranularity
         if (granularityString == "text") {
             granularity = SPXPronunciationAssessmentGranularity.fullText
-        }
-        else if (granularityString == "word") {
+        } else if (granularityString == "word") {
             granularity = SPXPronunciationAssessmentGranularity.word
-        }
-        else {
+        } else {
             granularity = SPXPronunciationAssessmentGranularity.phoneme
         }
         if (call.method == "simpleVoice") {
             print("AzureSpeechRecognition: Called simpleVoice")
             simpleSpeechRecognition(speechSubscriptionKey: speechSubscriptionKey, serviceRegion: serviceRegion, lang: lang, timeoutMs: timeoutMs)
             result(true)
-        }
-        else if (call.method == "simpleVoiceWithAssessment") {
+        } else if (call.method == "simpleVoiceWithAssessment") {
             print("AzureSpeechRecognition: Called simpleVoiceWithAssessment")
-            simpleSpeechRecognitionWithAssessment(referenceText: referenceText, phonemeAlphabet: phonemeAlphabet,  granularity: granularity, enableMiscue: enableMiscue, speechSubscriptionKey: speechSubscriptionKey, serviceRegion: serviceRegion, lang: lang, timeoutMs: timeoutMs, nBestPhonemeCount: nBestPhonemeCount)
+            simpleSpeechRecognitionWithAssessment(referenceText: referenceText, phonemeAlphabet: phonemeAlphabet, granularity: granularity, enableMiscue: enableMiscue, speechSubscriptionKey: speechSubscriptionKey, serviceRegion: serviceRegion, lang: lang, timeoutMs: timeoutMs, nBestPhonemeCount: nBestPhonemeCount)
             result(true)
-        }
-        else if (call.method == "isContinuousRecognitionOn") {
+        } else if (call.method == "isContinuousRecognitionOn") {
             print("AzureSpeechRecognition: Called isContinuousRecognitionOn: \(continousListeningStarted)")
             result(continousListeningStarted)
-        }
-        else if (call.method == "continuousStream") {
+        } else if (call.method == "continuousStream") {
             print("AzureSpeechRecognition: Called continuousStream")
             continuousStream(speechSubscriptionKey: speechSubscriptionKey, serviceRegion: serviceRegion, lang: lang)
             result(true)
-        }
-        else if (call.method == "continuousStreamWithAssessment") {
+        } else if (call.method == "continuousStreamWithAssessment") {
             print("AzureSpeechRecognition: Called continuousStreamWithAssessment")
-            continuousStreamWithAssessment(referenceText: referenceText, phonemeAlphabet: phonemeAlphabet,  granularity: granularity, enableMiscue: enableMiscue, speechSubscriptionKey: speechSubscriptionKey, serviceRegion: serviceRegion, lang: lang, nBestPhonemeCount: nBestPhonemeCount)
+            continuousStreamWithAssessment(referenceText: referenceText, phonemeAlphabet: phonemeAlphabet, granularity: granularity, enableMiscue: enableMiscue, speechSubscriptionKey: speechSubscriptionKey, serviceRegion: serviceRegion, lang: lang, nBestPhonemeCount: nBestPhonemeCount)
             result(true)
-        }
-        else if (call.method == "stopContinuousStream") {
+        } else if (call.method == "stopContinuousStream") {
             stopContinuousStream(flutterResult: result)
-        }
-        else {
+        } else {
             result(FlutterMethodNotImplemented)
         }
     }
-    
-    
     
     private func cancelActiveSimpleRecognitionTasks() {
         print("AzureSpeechRecognition: Cancelling any active tasks")
@@ -89,10 +80,10 @@ public class SwiftAzureSpeechRecognitionPlugin: NSObject, FlutterPlugin {
         }
     }
     
-    private func simpleSpeechRecognition(speechSubscriptionKey : String, serviceRegion : String, lang: String, timeoutMs: String) {
+    private func simpleSpeechRecognition(speechSubscriptionKey: String, serviceRegion: String, lang: String, timeoutMs: String) {
         print("AzureSpeechRecognition: Created new recognition task")
         cancelActiveSimpleRecognitionTasks()
-        let taskId = UUID().uuidString;
+        let taskId = UUID().uuidString
         let task = Task {
             print("AzureSpeechRecognition: Started recognition with task ID \(taskId)")
             var speechConfig: SPXSpeechConfiguration?
@@ -110,45 +101,46 @@ public class SwiftAzureSpeechRecognitionPlugin: NSObject, FlutterPlugin {
             }
             speechConfig?.speechRecognitionLanguage = lang
             speechConfig?.setPropertyTo(timeoutMs, by: SPXPropertyId.speechSegmentationSilenceTimeoutMs)
-            
+
             let audioConfig = SPXAudioConfiguration()
             let reco = try! SPXSpeechRecognizer(speechConfiguration: speechConfig!, audioConfiguration: audioConfig)
-            
-            reco.addRecognizingEventHandler() {reco, evt in
-                if (self.simpleRecognitionTasks[taskId]?.isCanceled ?? false) { // Discard intermediate results if the task was cancelled
-                    print("AzureSpeechRecognition: Ignoring partial result. TaskID: \(taskId)")
-                }
-                else {
-                    print("AzureSpeechRecognition: Intermediate result: \(evt.result.text ?? "(no result)")\nTaskID: \(taskId)")
-                    self.azureChannel.invokeMethod("speech.onSpeech", arguments: evt.result.text)
+
+            reco.addRecognizingEventHandler { reco, evt in
+                DispatchQueue.main.async {
+                    if (self.simpleRecognitionTasks[taskId]?.isCanceled ?? false) { // Discard intermediate results if the task was cancelled
+                        print("AzureSpeechRecognition: Ignoring partial result. TaskID: \(taskId)")
+                    } else {
+                        print("AzureSpeechRecognition: Intermediate result: \(evt.result.text ?? "(no result)")\nTaskID: \(taskId)")
+                        self.azureChannel.invokeMethod("speech.onSpeech", arguments: evt.result.text)
+                    }
                 }
             }
-            
+
             let result = try! reco.recognizeOnce()
-            if (Task.isCancelled) {
-                print("AzureSpeechRecognition: Ignoring final result. TaskID: \(taskId)")
-            } else {
-                print("AzureSpeechRecognition: Final result: \(result.text ?? "(no result)")\nReason: \(result.reason.rawValue)\nTaskID: \(taskId)")
-                if result.reason != SPXResultReason.recognizedSpeech {
-                    let cancellationDetails = try! SPXCancellationDetails(fromCanceledRecognitionResult: result)
-                    print("AzureSpeechRecognition: Cancelled: \(cancellationDetails.description), \(cancellationDetails.errorDetails)\nTaskID: \(taskId)")
-                    print("AzureSpeechRecognition: Did you set the speech resource key and region values?")
-                    self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: "")
+            DispatchQueue.main.async {
+                if (Task.isCancelled) {
+                    print("AzureSpeechRecognition: Ignoring final result. TaskID: \(taskId)")
+                } else {
+                    print("AzureSpeechRecognition: Final result: \(result.text ?? "(no result)")\nReason: \(result.reason.rawValue)\nTaskID: \(taskId)")
+                    if result.reason != SPXResultReason.recognizedSpeech {
+                        let cancellationDetails = try! SPXCancellationDetails(fromCanceledRecognitionResult: result)
+                        print("AzureSpeechRecognition: Cancelled: \(cancellationDetails.description), \(cancellationDetails.errorDetails)\nTaskID: \(taskId)")
+                        print("AzureSpeechRecognition: Did you set the speech resource key and region values?")
+                        self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: "")
+                    } else {
+                        self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: result.text)
+                    }
                 }
-                else {
-                    self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: result.text)
-                }
-                
+                self.simpleRecognitionTasks.removeValue(forKey: taskId)
             }
-            self.simpleRecognitionTasks.removeValue(forKey: taskId)
         }
         simpleRecognitionTasks[taskId] = SimpleRecognitionTask(task: task, isCanceled: false)
     }
     
-    private func simpleSpeechRecognitionWithAssessment(referenceText: String, phonemeAlphabet: String, granularity: SPXPronunciationAssessmentGranularity, enableMiscue: Bool, speechSubscriptionKey : String, serviceRegion : String, lang: String, timeoutMs: String, nBestPhonemeCount: Int?) {
+    private func simpleSpeechRecognitionWithAssessment(referenceText: String, phonemeAlphabet: String, granularity: SPXPronunciationAssessmentGranularity, enableMiscue: Bool, speechSubscriptionKey: String, serviceRegion: String, lang: String, timeoutMs: String, nBestPhonemeCount: Int?) {
         print("AzureSpeechRecognition: Created new recognition task")
         cancelActiveSimpleRecognitionTasks()
-        let taskId = UUID().uuidString;
+        let taskId = UUID().uuidString
         let task = Task {
             print("AzureSpeechRecognition: Started recognition with task ID \(taskId)")
             var speechConfig: SPXSpeechConfiguration?
@@ -183,37 +175,38 @@ public class SwiftAzureSpeechRecognitionPlugin: NSObject, FlutterPlugin {
             let reco = try! SPXSpeechRecognizer(speechConfiguration: speechConfig!, audioConfiguration: audioConfig)
             try! pronunciationAssessmentConfig?.apply(to: reco)
             
-            reco.addRecognizingEventHandler() {reco, evt in
-                if (self.simpleRecognitionTasks[taskId]?.isCanceled ?? false) { // Discard intermediate results if the task was cancelled
-                    print("AzureSpeechRecognition: Ignoring partial result. TaskID: \(taskId)")
-                }
-                else {
-                    print("AzureSpeechRecognition: Intermediate result: \(evt.result.text ?? "(no result)")\nTaskID: \(taskId)")
-                    self.azureChannel.invokeMethod("speech.onSpeech", arguments: evt.result.text)
+            reco.addRecognizingEventHandler { reco, evt in
+                DispatchQueue.main.async {
+                    if (self.simpleRecognitionTasks[taskId]?.isCanceled ?? false) { // Discard intermediate results if the task was cancelled
+                        print("AzureSpeechRecognition: Ignoring partial result. TaskID: \(taskId)")
+                    } else {
+                        print("AzureSpeechRecognition: Intermediate result: \(evt.result.text ?? "(no result)")\nTaskID: \(taskId)")
+                        self.azureChannel.invokeMethod("speech.onSpeech", arguments: evt.result.text)
+                    }
                 }
             }
             
             let result = try! reco.recognizeOnce()
-            if (Task.isCancelled) {
-                print("AzureSpeechRecognition: Ignoring final result. TaskID: \(taskId)")
-            } else {
-                print("AzureSpeechRecognition: Final result: \(result.text ?? "(no result)")\nReason: \(result.reason.rawValue)\nTaskID: \(taskId)")
-                let pronunciationAssessmentResultJson = result.properties?.getPropertyBy(SPXPropertyId.speechServiceResponseJsonResult)
-                print("AzureSpeechRecognition: pronunciationAssessmentResultJson: \(pronunciationAssessmentResultJson ?? "(no result)")")
-                if result.reason != SPXResultReason.recognizedSpeech {
-                    let cancellationDetails = try! SPXCancellationDetails(fromCanceledRecognitionResult: result)
-                    print("AzureSpeechRecognition: Cancelled: \(cancellationDetails.description), \(cancellationDetails.errorDetails)\nTaskID: \(taskId)")
-                    print("AzureSpeechRecognition: Did you set the speech resource key and region values?")
-                    self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: "")
-                    self.azureChannel.invokeMethod("speech.onAssessmentResult", arguments: "")
+            DispatchQueue.main.async {
+                if (Task.isCancelled) {
+                    print("AzureSpeechRecognition: Ignoring final result. TaskID: \(taskId)")
+                } else {
+                    print("AzureSpeechRecognition: Final result: \(result.text ?? "(no result)")\nReason: \(result.reason.rawValue)\nTaskID: \(taskId)")
+                    let pronunciationAssessmentResultJson = result.properties?.getPropertyBy(SPXPropertyId.speechServiceResponseJsonResult)
+                    print("AzureSpeechRecognition: pronunciationAssessmentResultJson: \(pronunciationAssessmentResultJson ?? "(no result)")")
+                    if result.reason != SPXResultReason.recognizedSpeech {
+                        let cancellationDetails = try! SPXCancellationDetails(fromCanceledRecognitionResult: result)
+                        print("AzureSpeechRecognition: Cancelled: \(cancellationDetails.description), \(cancellationDetails.errorDetails)\nTaskID: \(taskId)")
+                        print("AzureSpeechRecognition: Did you set the speech resource key and region values?")
+                        self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: "")
+                        self.azureChannel.invokeMethod("speech.onAssessmentResult", arguments: "")
+                    } else {
+                        self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: result.text)
+                        self.azureChannel.invokeMethod("speech.onAssessmentResult", arguments: pronunciationAssessmentResultJson)
+                    }
                 }
-                else {
-                    self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: result.text)
-                    self.azureChannel.invokeMethod("speech.onAssessmentResult", arguments: pronunciationAssessmentResultJson)
-                }
-                
+                self.simpleRecognitionTasks.removeValue(forKey: taskId)
             }
-            self.simpleRecognitionTasks.removeValue(forKey: taskId)
         }
         simpleRecognitionTasks[taskId] = SimpleRecognitionTask(task: task, isCanceled: false)
     }
@@ -222,32 +215,38 @@ public class SwiftAzureSpeechRecognitionPlugin: NSObject, FlutterPlugin {
         if (continousListeningStarted) {
             print("AzureSpeechRecognition: Stopping continous recognition")
             do {
-                try continousSpeechRecognizer!.stopContinuousRecognition()
-                self.azureChannel.invokeMethod("speech.onRecognitionStopped", arguments: nil)
-                continousSpeechRecognizer = nil
-                continousListeningStarted = false
+                try self.continousSpeechRecognizer!.stopContinuousRecognition()
+                self.continousSpeechRecognizer = nil
+                self.continousListeningStarted = false
+                // Call flutterResult outside of the DispatchQueue.main.async block
                 flutterResult(true)
-            }
-            catch {
+                DispatchQueue.main.async {
+                    self.azureChannel.invokeMethod("speech.onRecognitionStopped", arguments: nil)
+                }
+            } catch {
                 print("AzureSpeechRecognition: Error occurred stopping continous recognition")
+                // Ensure to handle error case properly
+                flutterResult(FlutterError(code: "STOP_ERROR", message: "Error occurred stopping continuous recognition", details: error.localizedDescription))
             }
+        } else {
+            flutterResult(FlutterError(code: "NOT_STARTED", message: "Continuous recognition not started", details: nil))
         }
     }
     
-    private func continuousStream(speechSubscriptionKey : String, serviceRegion : String, lang: String) {
+    private func continuousStream(speechSubscriptionKey: String, serviceRegion: String, lang: String) {
         if (continousListeningStarted) {
             print("AzureSpeechRecognition: Stopping continous recognition")
             do {
-                try continousSpeechRecognizer!.stopContinuousRecognition()
-                self.azureChannel.invokeMethod("speech.onRecognitionStopped", arguments: nil)
-                continousSpeechRecognizer = nil
-                continousListeningStarted = false
-            }
-            catch {
+                try self.continousSpeechRecognizer!.stopContinuousRecognition()
+                DispatchQueue.main.async {
+                    self.azureChannel.invokeMethod("speech.onRecognitionStopped", arguments: nil)
+                    self.continousSpeechRecognizer = nil
+                    self.continousListeningStarted = false
+                }
+            } catch {
                 print("AzureSpeechRecognition: Error occurred stopping continous recognition")
             }
-        }
-        else {
+        } else {
             print("AzureSpeechRecognition: Starting continous recognition")
             do {
                 let audioSession = AVAudioSession.sharedInstance()
@@ -255,49 +254,53 @@ public class SwiftAzureSpeechRecognitionPlugin: NSObject, FlutterPlugin {
                 try audioSession.setCategory(AVAudioSession.Category.record, mode: AVAudioSession.Mode.default, options: AVAudioSession.CategoryOptions.allowBluetooth)
                 try audioSession.setActive(true)
                 print("AzureSpeechRecognition: Setting custom audio session")
-            }
-            catch {
+            } catch {
                 print("AzureSpeechRecognition: An unexpected error occurred")
             }
             
             let speechConfig = try! SPXSpeechConfiguration(subscription: speechSubscriptionKey, region: serviceRegion)
-            
             speechConfig.speechRecognitionLanguage = lang
             
             let audioConfig = SPXAudioConfiguration()
             
             continousSpeechRecognizer = try! SPXSpeechRecognizer(speechConfiguration: speechConfig, audioConfiguration: audioConfig)
-            continousSpeechRecognizer!.addRecognizingEventHandler() {reco, evt in
-                print("AzureSpeechRecognition: intermediate recognition result: \(evt.result.text ?? "(no result)")")
-                self.azureChannel.invokeMethod("speech.onSpeech", arguments: evt.result.text)
+            continousSpeechRecognizer!.addRecognizingEventHandler { reco, evt in
+                DispatchQueue.main.async {
+                    print("AzureSpeechRecognition: intermediate recognition result: \(evt.result.text ?? "(no result)")")
+                    self.azureChannel.invokeMethod("speech.onSpeech", arguments: evt.result.text)
+                }
             }
-            continousSpeechRecognizer!.addRecognizedEventHandler({reco, evt in
-                let res = evt.result.text
-                print("AzureSpeechRecognition: final result \(res!)")
-                self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: res)
-            })
+            continousSpeechRecognizer!.addRecognizedEventHandler { reco, evt in
+                DispatchQueue.main.async {
+                    let res = evt.result.text
+                    print("AzureSpeechRecognition: final result \(res!)")
+                    self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: res)
+                }
+            }
             print("AzureSpeechRecognition: Listening...")
             try! continousSpeechRecognizer!.startContinuousRecognition()
-            self.azureChannel.invokeMethod("speech.onRecognitionStarted", arguments: nil)
-            continousListeningStarted = true
+            DispatchQueue.main.async {
+                self.azureChannel.invokeMethod("speech.onRecognitionStarted", arguments: nil)
+                self.continousListeningStarted = true
+            }
         }
     }
     
-    private func continuousStreamWithAssessment(referenceText: String, phonemeAlphabet: String, granularity: SPXPronunciationAssessmentGranularity, enableMiscue: Bool, speechSubscriptionKey : String, serviceRegion : String, lang: String, nBestPhonemeCount: Int?) {
+    private func continuousStreamWithAssessment(referenceText: String, phonemeAlphabet: String, granularity: SPXPronunciationAssessmentGranularity, enableMiscue: Bool, speechSubscriptionKey: String, serviceRegion: String, lang: String, nBestPhonemeCount: Int?) {
         print("AzureSpeechRecognition: Continuous recognition started: \(continousListeningStarted)")
         if (continousListeningStarted) {
             print("AzureSpeechRecognition: Stopping continous recognition")
             do {
-                try continousSpeechRecognizer!.stopContinuousRecognition()
-                self.azureChannel.invokeMethod("speech.onRecognitionStopped", arguments: nil)
-                continousSpeechRecognizer = nil
-                continousListeningStarted = false
-            }
-            catch {
+                try self.continousSpeechRecognizer!.stopContinuousRecognition()
+                DispatchQueue.main.async {
+                    self.azureChannel.invokeMethod("speech.onRecognitionStopped", arguments: nil)
+                    self.continousSpeechRecognizer = nil
+                    self.continousListeningStarted = false
+                }
+            } catch {
                 print("AzureSpeechRecognition: Error occurred stopping continous recognition")
             }
-        }
-        else {
+        } else {
             print("AzureSpeechRecognition: Starting continous recognition")
             do {
                 let audioSession = AVAudioSession.sharedInstance()
@@ -320,30 +323,34 @@ public class SwiftAzureSpeechRecognitionPlugin: NSObject, FlutterPlugin {
                     pronunciationAssessmentConfig.nbestPhonemeCount = nBestPhonemeCount!
                 }
                 
-                
                 let audioConfig = SPXAudioConfiguration()
                 
                 continousSpeechRecognizer = try SPXSpeechRecognizer(speechConfiguration: speechConfig, audioConfiguration: audioConfig)
                 try pronunciationAssessmentConfig.apply(to: continousSpeechRecognizer!)
                 
-                continousSpeechRecognizer!.addRecognizingEventHandler() {reco, evt in
-                    print("AzureSpeechRecognition: intermediate recognition result: \(evt.result.text ?? "(no result)")")
-                    self.azureChannel.invokeMethod("speech.onSpeech", arguments: evt.result.text)
+                continousSpeechRecognizer!.addRecognizingEventHandler { reco, evt in
+                    DispatchQueue.main.async {
+                        print("AzureSpeechRecognition: intermediate recognition result: \(evt.result.text ?? "(no result)")")
+                        self.azureChannel.invokeMethod("speech.onSpeech", arguments: evt.result.text)
+                    }
                 }
-                continousSpeechRecognizer!.addRecognizedEventHandler({reco, evt in
-                    let result = evt.result
-                    print("AzureSpeechRecognition: Final result: \(result.text ?? "(no result)")\nReason: \(result.reason.rawValue)")
-                    let pronunciationAssessmentResultJson = result.properties?.getPropertyBy(SPXPropertyId.speechServiceResponseJsonResult)
-                    print("AzureSpeechRecognition: pronunciationAssessmentResultJson: \(pronunciationAssessmentResultJson ?? "(no result)")")
-                    self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: result.text)
-                    self.azureChannel.invokeMethod("speech.onAssessmentResult", arguments: pronunciationAssessmentResultJson)
-                })
+                continousSpeechRecognizer!.addRecognizedEventHandler { reco, evt in
+                    DispatchQueue.main.async {
+                        let result = evt.result
+                        print("AzureSpeechRecognition: Final result: \(result.text ?? "(no result)")\nReason: \(result.reason.rawValue)")
+                        let pronunciationAssessmentResultJson = result.properties?.getPropertyBy(SPXPropertyId.speechServiceResponseJsonResult)
+                        print("AzureSpeechRecognition: pronunciationAssessmentResultJson: \(pronunciationAssessmentResultJson ?? "(no result)")")
+                        self.azureChannel.invokeMethod("speech.onFinalResponse", arguments: result.text)
+                        self.azureChannel.invokeMethod("speech.onAssessmentResult", arguments: pronunciationAssessmentResultJson)
+                    }
+                }
                 print("AzureSpeechRecognition: Listening...")
                 try continousSpeechRecognizer!.startContinuousRecognition()
-                self.azureChannel.invokeMethod("speech.onRecognitionStarted", arguments: nil)
-                continousListeningStarted = true
-            }
-            catch {
+                DispatchQueue.main.async {
+                    self.azureChannel.invokeMethod("speech.onRecognitionStarted", arguments: nil)
+                    self.continousListeningStarted = true
+                }
+            } catch {
                 print("AzureSpeechRecognition: An unexpected error occurred: \(error)")
             }
         }
