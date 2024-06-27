@@ -18,6 +18,8 @@ class AzureSpeechRecognition {
   /// recognizer. Default language is English.
   AzureSpeechRecognition.initialize(String subKey, String region,
       {String? lang, String? timeout}) {
+    print('AzureSpeechRecognition (dart): initialize');
+
     _channel.setMethodCallHandler(_platformCallHandler);
 
     _subKey = subKey;
@@ -37,6 +39,8 @@ class AzureSpeechRecognition {
     recognitionStartedHandler = null;
     startRecognitionHandler = null;
     recognitionStoppedHandler = null;
+
+    print('AzureSpeechRecognition (dart): initialized');
   }
 
   StringResultHandler? exceptionHandler;
@@ -48,40 +52,69 @@ class AzureSpeechRecognition {
   VoidCallback? recognitionStoppedHandler;
 
   Future _platformCallHandler(MethodCall call) async {
+    print(
+        'AzureSpeechRecognition (dart): _platformCallHandler(${call.method}) with arguments: ${call.arguments}');
     switch (call.method) {
       case "speech.onRecognitionStarted":
+        print(
+            'AzureSpeechRecognition (dart): Calling recognitionStartedHandler ($recognitionStartedHandler)');
         recognitionStartedHandler?.call();
+        print('AzureSpeechRecognition (dart): speech.onRecognitionStarted');
         break;
       case "speech.onSpeech":
+        print(
+            'AzureSpeechRecognition (dart): Calling recognitionResultHandler ($recognitionResultHandler)');
         recognitionResultHandler?.call(call.arguments);
+        print('AzureSpeechRecognition (dart): speech.onSpeech');
         break;
       case "speech.onFinalResponse":
+        print(
+            'AzureSpeechRecognition (dart): Calling finalTranscriptionHandler ($finalTranscriptionHandler)');
         finalTranscriptionHandler?.call(call.arguments);
+        print('AzureSpeechRecognition (dart): speech.onFinalResponse');
         break;
       case "speech.onAssessmentResult":
+        print(
+            'AzureSpeechRecognition (dart): Calling assessmentResultHandler ($assessmentResultHandler)');
         assessmentResultHandler?.call(call.arguments);
+        print('AzureSpeechRecognition (dart): speech.onAssessmentResult');
         break;
       case "speech.onStartAvailable":
+        print(
+            'AzureSpeechRecognition (dart): Calling startRecognitionHandler ($startRecognitionHandler)');
         startRecognitionHandler?.call();
+        print('AzureSpeechRecognition (dart): speech.onStartAvailable');
         break;
       case "speech.onRecognitionStopped":
+        print(
+            'AzureSpeechRecognition (dart): Calling recognitionStoppedHandler ($recognitionStoppedHandler)');
         recognitionStoppedHandler?.call();
+        print('AzureSpeechRecognition (dart): speech.onRecognitionStopped');
         break;
       case "speech.onException":
+        print(
+            'AzureSpeechRecognition (dart): Calling exceptionHandler ($exceptionHandler)');
         exceptionHandler?.call(call.arguments);
+        print('AzureSpeechRecognition (dart): speech.onException');
         break;
       default:
+        print("AzureSpeechRecognition (dart): Error: method called not found");
         throw MissingPluginException('Not implemented: ${call.method}');
     }
   }
 
   /// called each time a result is obtained from the async call
-  void setRecognitionResultHandler(StringResultHandler handler) =>
-      recognitionResultHandler = handler;
+  void setRecognitionResultHandler(StringResultHandler handler) {
+    print(
+        'AzureSpeechRecognition (dart): setRecognitionResultHandler ($handler)');
+    recognitionResultHandler = handler;
+  }
 
   /// final transcription is passed here
-  void setFinalTranscription(StringResultHandler handler) =>
-      finalTranscriptionHandler = handler;
+  void setFinalTranscription(StringResultHandler handler) {
+    print('AzureSpeechRecognition (dart): setFinalTranscription ($handler)');
+    finalTranscriptionHandler = handler;
+  }
 
   void setAssessmentResult(StringResultHandler handler) =>
       assessmentResultHandler = handler;
