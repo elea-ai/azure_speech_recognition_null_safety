@@ -18,10 +18,9 @@ class _ContinuousRecognitionScreenState
   void initState() {
     super.initState();
     final AzureSpeechRecognition _azureSpeechRecognition =
-        AzureSpeechRecognition();
-    AzureSpeechRecognition.initialize(
-        dotenv.get('AZURE_KEY'), dotenv.get('AZURE_REGION'),
-        lang: 'en-US', timeout: '1500');
+        AzureSpeechRecognition.initialize(
+            dotenv.get('AZURE_KEY'), dotenv.get('AZURE_REGION'),
+            lang: 'en-US', timeout: '1500');
     _azureSpeechRecognition.setFinalTranscription((text) {
       if (text.isEmpty) return;
 

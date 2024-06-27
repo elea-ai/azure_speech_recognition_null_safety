@@ -4,28 +4,24 @@ import 'package:flutter/services.dart';
 
 typedef void StringResultHandler(String text);
 
+/// Create instance by calling `AzureSpeechRecognition.initialize(subKey, region)`
 class AzureSpeechRecognition {
   static const MethodChannel _channel =
-      const MethodChannel('azure_speech_recognition');
-
-  static final AzureSpeechRecognition _azureSpeechRecognition =
-      new AzureSpeechRecognition._internal();
-
-  factory AzureSpeechRecognition() => _azureSpeechRecognition;
-
-  AzureSpeechRecognition._internal() {
-    _channel.setMethodCallHandler(_platformCallHandler);
-  }
+      MethodChannel('azure_speech_recognition');
 
   static String? _subKey;
   static String? _region;
   static String _lang = "en-EN";
   static String _timeout = "1000";
 
-  /// default intitializer for almost every type except for the intent recognizer.
-  /// Default language -> English
+  /// Default initializer for almost every type except for the intent
+  /// recognizer. Default language is English.
   AzureSpeechRecognition.initialize(String subKey, String region,
       {String? lang, String? timeout}) {
+    print('AzureSpeechRecognition (dart): initialize');
+
+    _channel.setMethodCallHandler(_platformCallHandler);
+
     _subKey = subKey;
     _region = region;
     if (lang != null) _lang = lang;
@@ -43,6 +39,8 @@ class AzureSpeechRecognition {
     recognitionStartedHandler = null;
     startRecognitionHandler = null;
     recognitionStoppedHandler = null;
+
+    print('AzureSpeechRecognition (dart): initialized');
   }
 
   StringResultHandler? exceptionHandler;
@@ -54,36 +52,50 @@ class AzureSpeechRecognition {
   VoidCallback? recognitionStoppedHandler;
 
   Future _platformCallHandler(MethodCall call) async {
-    print('AzureSpeechRecognition (dart): ${call.method}');
-
+    print(
+        'AzureSpeechRecognition (dart): _platformCallHandler(${call.method}) with arguments: ${call.arguments}');
     switch (call.method) {
       case "speech.onRecognitionStarted":
-        recognitionStartedHandler!();
-        print('AzureSpeechRecognition (dart): onRecognitionStarted');
+        print(
+            'AzureSpeechRecognition (dart): Calling recognitionStartedHandler ($recognitionStartedHandler)');
+        recognitionStartedHandler?.call();
+        print('AzureSpeechRecognition (dart): speech.onRecognitionStarted');
         break;
       case "speech.onSpeech":
-        recognitionResultHandler!(call.arguments);
-        print('AzureSpeechRecognition (dart): onSpeech');
+        print(
+            'AzureSpeechRecognition (dart): Calling recognitionResultHandler ($recognitionResultHandler)');
+        recognitionResultHandler?.call(call.arguments);
+        print('AzureSpeechRecognition (dart): speech.onSpeech');
         break;
       case "speech.onFinalResponse":
-        print('AzureSpeechRecognition (dart): onFinalResponse');
-        finalTranscriptionHandler!(call.arguments);
+        print(
+            'AzureSpeechRecognition (dart): Calling finalTranscriptionHandler ($finalTranscriptionHandler)');
+        finalTranscriptionHandler?.call(call.arguments);
+        print('AzureSpeechRecognition (dart): speech.onFinalResponse');
         break;
       case "speech.onAssessmentResult":
-        print('AzureSpeechRecognition (dart): onAssessmentResult');
-        assessmentResultHandler!(call.arguments);
+        print(
+            'AzureSpeechRecognition (dart): Calling assessmentResultHandler ($assessmentResultHandler)');
+        assessmentResultHandler?.call(call.arguments);
+        print('AzureSpeechRecognition (dart): speech.onAssessmentResult');
         break;
       case "speech.onStartAvailable":
-        print('AzureSpeechRecognition (dart): onStartAvailable');
-        startRecognitionHandler!();
+        print(
+            'AzureSpeechRecognition (dart): Calling startRecognitionHandler ($startRecognitionHandler)');
+        startRecognitionHandler?.call();
+        print('AzureSpeechRecognition (dart): speech.onStartAvailable');
         break;
       case "speech.onRecognitionStopped":
-        print('AzureSpeechRecognition (dart): onRecognitionStopped');
-        recognitionStoppedHandler!();
+        print(
+            'AzureSpeechRecognition (dart): Calling recognitionStoppedHandler ($recognitionStoppedHandler)');
+        recognitionStoppedHandler?.call();
+        print('AzureSpeechRecognition (dart): speech.onRecognitionStopped');
         break;
       case "speech.onException":
-        print('AzureSpeechRecognition (dart): onException');
-        exceptionHandler!(call.arguments);
+        print(
+            'AzureSpeechRecognition (dart): Calling exceptionHandler ($exceptionHandler)');
+        exceptionHandler?.call(call.arguments);
+        print('AzureSpeechRecognition (dart): speech.onException');
         break;
       default:
         print("AzureSpeechRecognition (dart): Error: method called not found");
@@ -92,12 +104,17 @@ class AzureSpeechRecognition {
   }
 
   /// called each time a result is obtained from the async call
-  void setRecognitionResultHandler(StringResultHandler handler) =>
-      recognitionResultHandler = handler;
+  void setRecognitionResultHandler(StringResultHandler handler) {
+    print(
+        'AzureSpeechRecognition (dart): setRecognitionResultHandler ($handler)');
+    recognitionResultHandler = handler;
+  }
 
   /// final transcription is passed here
-  void setFinalTranscription(StringResultHandler handler) =>
-      finalTranscriptionHandler = handler;
+  void setFinalTranscription(StringResultHandler handler) {
+    print('AzureSpeechRecognition (dart): setFinalTranscription ($handler)');
+    finalTranscriptionHandler = handler;
+  }
 
   void setAssessmentResult(StringResultHandler handler) =>
       assessmentResultHandler = handler;
@@ -110,11 +127,11 @@ class AzureSpeechRecognition {
   void setRecognitionStartedHandler(VoidCallback handler) =>
       recognitionStartedHandler = handler;
 
-  /// only for continuosly
+  /// only for continuously
   void setStartHandler(VoidCallback handler) =>
       startRecognitionHandler = handler;
 
-  /// only for continuosly
+  /// only for continuously
   void setRecognitionStoppedHandler(VoidCallback handler) =>
       recognitionStoppedHandler = handler;
 

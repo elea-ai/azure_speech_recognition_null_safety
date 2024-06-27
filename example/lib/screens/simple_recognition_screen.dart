@@ -66,7 +66,7 @@ class _SimpleRecognitionScreenState extends State<SimpleRecognitionScreen>
       print("Failed to get text '$e'.");
     }
   }
-  
+
   @override
   void dispose() {
     controller.dispose();
@@ -97,7 +97,9 @@ class _SimpleRecognitionScreenState extends State<SimpleRecognitionScreen>
                 },
               ),
             ),
-            SizedBox(height: 40,),
+            SizedBox(
+              height: 40,
+            ),
             Text('Recognized text : $_centerText\n'),
             FloatingActionButton(
               onPressed: !isRecording ? _recognizeVoice : null,
